@@ -1,0 +1,22 @@
+jupyterlab
+pandas
+pandas-gbq
+google-cloud
+google-cloud-secret-manager
+google-cloud-storage
+google-api-python-client 
+google-auth-httplib2 
+google-auth-oauthlib
+cloudstorage
+gcloud
+# pyodbc
+tzlocal
+sqlalchemy
+sqlalchemy_utils
+beautifulsoup4
+flask
+pydrive
+psycopg2-binary
+lxml==4.6.3
+pyOpenSSL==20.0.1
+zeep==4.0.0
