@@ -50,17 +50,18 @@ def check_iso_dart(iso, lookback=LOOKBACK_DAYS, hour_offset=1):
     if r['status']!='green':
         subject = f"DATA-COMPLETENESS-REDFLAG: {r['market']}"
         summary = pd.DataFrame(pd.Series({
+            'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
             'STATUS': r['status'].upper(),
             'DA LAST DATETIME': r['last_datetime_da'],
-            'RT LAST DATETIME': r['last_datetime_da'],
+            'RT LAST DATETIME': r['last_datetime_rt'],
             'SKIPPED DATES COUNT': len(r['skipped_dates']),
             'NUM DAYS W/ MISSING DA': r['missing_da_days'],
             'NUM DAYS W/ MISSING RT': r['missing_rt_days'],
         }), columns=[''])
         body = f"""
         <h2>SUMMARY</h2>
-            {build_table(summary, 'blue_light', font_size=9, index=True)}
+            {build_table(summary, 'blue_light', font_size=9, index=True, width='100%')}
         """
         if len(r['skipped_dates'])>0:
             body += f"""\n

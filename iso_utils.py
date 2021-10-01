@@ -54,7 +54,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
     market_id = get_market_id(market)
 
-    query_ = f"""    
+    query = f"""    
     select * from (
         select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
         from new_model.operating_date t1 
@@ -65,14 +65,14 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
     ) t
     where t.da_count=0 or t.rt_count=0
     """
-    query = f"""    
-    select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
-    from new_model.operating_date t1 
-    left join new_model.sn_dart_lmp t2
-    on t2.opr_date = t1.opr_date 
-    where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
-    group by t1.opr_date, t2.opr_hour
-    """
+    # query = f"""    
+    # select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
+    # from new_model.operating_date t1 
+    # left join new_model.sn_dart_lmp t2
+    # on t2.opr_date = t1.opr_date 
+    # where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
+    # group by t1.opr_date, t2.opr_hour
+    # """
     conn = engine.connect()
     df = pd.read_sql(query, conn)
     conn.close()
@@ -109,31 +109,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         'missing_da_days': missing_da_days
     }
 
-def flag_dart(market, lookback_days=None):
-    assert market.upper() in ISOs
-    df = get_missing_dart(market, lookback_days, output_type='raw')
-    df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
-    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
-    cr1 = df['opr_date'] <= datetime.datetime.today().date() - ALLOWED_RT_LAST_DATE_DELTA[market.upper()]
-    cr2 = df['opr_datetime'] <= pd.to_datetime(datetime.datetime.today().date()) + datetime.timedelta(hours=datetime.datetime.now(pytz.timezone(TIMEZONES[market.upper()])).hour - 1)
-    df = df[cr1 & cr2]
-    
-    print(df)
-    df['opr_date'] = df['opr_date'].astype(str)
-    missing_rt = df[df['rt_count']==0][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
-    missing_da = df[df['da_count']==0][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
-    skipped_dates = df[(df['da_count']==0)&(df['rt_count']==0)][['opr_date']].drop_duplicates().values.tolist()
 
-    if market.lower()=='nyiso':
-        pass
-    if market.lower()=='ercot':
-        pass
-    if market.lower()=='miso':
-        pass
-    if market.lower()=='isone':
-        pass
-    if market.lower()=='caisso':
-        pass
 if __name__ == '__main__':
     # print(get_missing_dart('NYISO'))
-    print(flag_dart('ERCOT', 273))
+    pass
