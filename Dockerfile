@@ -18,7 +18,7 @@ COPY sn-tools sn-tools
 COPY FRONTOFFICE-4a9964373eb2.json FRONTOFFICE-4a9964373eb2.json
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install zeep[xmlsec]
+# RUN pip install zeep[xmlsec]
 
 COPY . /app
 ENV PORT 8080
