@@ -23,7 +23,7 @@ ALLOWED_RT_LAST_DATE_DELTA = {
     'ERCOT': datetime.timedelta(days=0),
     'MISO': datetime.timedelta(days=3),
     'NYISO': datetime.timedelta(days=0),
-    'ISONE': datetime.timedelta(days=2),
+    'ISONE': datetime.timedelta(days=3),
     'CAISSO': datetime.timedelta(days=0)
 }
 TIMEZONES = {
@@ -54,25 +54,25 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
     market_id = get_market_id(market)
 
-    query = f"""    
-    select * from (
-        select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
-        from new_model.operating_date t1 
-        left join new_model.sn_dart_lmp t2
-        on t2.opr_date = t1.opr_date 
-        where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
-        group by t1.opr_date, t2.opr_hour
-    ) t
-    where t.da_count=0 or t.rt_count=0
-    """
     # query = f"""    
-    # select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
-    # from new_model.operating_date t1 
-    # left join new_model.sn_dart_lmp t2
-    # on t2.opr_date = t1.opr_date 
-    # where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
-    # group by t1.opr_date, t2.opr_hour
+    # select * from (
+    #     select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
+    #     from new_model.operating_date t1 
+    #     left join new_model.sn_dart_lmp t2
+    #     on t2.opr_date = t1.opr_date 
+    #     where t1.{market.lower()}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
+    #     group by t1.opr_date, t2.opr_hour
+    # ) t
+    # where t.da_count=0 or t.rt_count=0
     # """
+    query = f"""    
+    select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
+    from new_model.operating_date t1 
+    left join new_model.sn_dart_lmp t2
+    on t2.opr_date = t1.opr_date 
+    where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
+    group by t1.opr_date, t2.opr_hour
+    """
     conn = engine.connect()
     df = pd.read_sql(query, conn)
     conn.close()
@@ -103,8 +103,10 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         'missing_da': missing_da,
         'skipped_dates': skipped_dates,
         'skipped_dates_count': len(skipped_dates),
-        'last_datetime_da': str(df[df['da_count']!=0]['opr_datetime'].max()),
-        'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].max()),
+        'last_datetime_da': str(pd.to_datetime(df[df['da_count'] != 0]['opr_date'].dropna()).max()),
+        'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].dropna().max()),
+        'last_blank_datetime_da': str(pd.to_datetime(df[df['da_count'] == 0]['opr_date'].dropna()).max()),
+        'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr2]['opr_datetime'].dropna().max()),
         'missing_rt_days': missing_rt_days,
         'missing_da_days': missing_da_days
     }

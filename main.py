@@ -53,6 +53,8 @@ def check_iso_dart(iso, lookback=LOOKBACK_DAYS, hour_offset=1):
             'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
             'STATUS': r['status'].upper(),
+            'DA LAST BLANK DATETIME': r['last_blank_datetime_da'],
+            'RT LAST BLANK DATETIME': r['last_blank_datetime_rt'],
             'DA LAST DATETIME': r['last_datetime_da'],
             'RT LAST DATETIME': r['last_datetime_rt'],
             'SKIPPED DATES COUNT': len(r['skipped_dates']),
