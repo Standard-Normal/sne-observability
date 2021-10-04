@@ -24,7 +24,7 @@ ALLOWED_RT_LAST_DATE_DELTA = {
     'MISO': datetime.timedelta(days=3),
     'NYISO': datetime.timedelta(days=0),
     'ISONE': datetime.timedelta(days=3),
-    'CAISSO': datetime.timedelta(days=0)
+    'CAISO': datetime.timedelta(days=0)
 }
 TIMEZONES = {
     'ERCOT': 'US/Central',
@@ -32,6 +32,17 @@ TIMEZONES = {
     'NYISO': 'US/Eastern',
     'ISONE': 'US/Eastern',
     'CAISO': 'US/Pacific'
+}
+EXCEPTION_DATES = {
+    'ERCOT': [],
+    'MISO': [],
+    'NYISO': [],
+    'ISONE': [
+        '20170722', '20170724', '20170725', '20170728', '20170730', '20170731', '20170801',
+        '20170807', '20171105', '20180802', '20180803', '20180807', '20180817', '20181104',
+        '20190820', '20191103'
+        ],
+    'CAISO': []
 }
 HOST = os.environ["PG_HOST"]
 USER = os.environ["PG_USER"]
@@ -81,6 +92,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         return df
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
     df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    # df['exception'] = df[~df['opr_date'].astype(str).apply(lambda x: x.replace('-', '')).isin(EXCEPTION_DATES.get(market, []))]
     
     cr1 = df['opr_datetime'] <= pd.to_datetime(datetime.datetime.today().date()) + datetime.timedelta(hours=datetime.datetime.now(pytz.timezone(TIMEZONES[market.upper()])).hour - hour_offset)
     cr2 = df['opr_date'] <= datetime.datetime.today().date() - ALLOWED_RT_LAST_DATE_DELTA[market.upper()]
@@ -106,7 +118,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         'last_datetime_da': str(pd.to_datetime(df[df['da_count'] != 0]['opr_date'].dropna()).max()),
         'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].dropna().max()),
         'last_blank_datetime_da': str(pd.to_datetime(df[df['da_count'] == 0]['opr_date'].dropna()).max()),
-        'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr2]['opr_datetime'].dropna().max()),
+        'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr1 & cr2]['opr_datetime'].dropna().max()),
         'missing_rt_days': missing_rt_days,
         'missing_da_days': missing_da_days
     }
