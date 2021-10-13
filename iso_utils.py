@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 import datetime
+from pandas.core.tools.datetimes import to_datetime
 import requests
 import io
 import os
@@ -115,12 +116,170 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         'missing_da': missing_da,
         'skipped_dates': skipped_dates,
         'skipped_dates_count': len(skipped_dates),
-        'last_datetime_da': str(pd.to_datetime(df[df['da_count'] != 0]['opr_date'].dropna()).max()),
+        'last_datetime_da': str(pd.to_datetime(df[(df['da_count'] != 0)]['opr_date'].dropna()).max()),
         'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].dropna().max()),
         'last_blank_datetime_da': str(pd.to_datetime(df[df['da_count'] == 0]['opr_date'].dropna()).max()),
         'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr1 & cr2]['opr_datetime'].dropna().max()),
         'missing_rt_days': missing_rt_days,
         'missing_da_days': missing_da_days
+    }
+
+
+def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='list'):
+    market = market.lower()
+    assert output_type in ('list', 'raw')
+    if lookback_days == None:
+        stdt = datetime.datetime(2017, 1, 1).date()
+    else:
+        stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
+
+    if market == 'ercot':
+        indicator_act = 'actual_solar_gen'
+        indicator_fct = 'stppf'
+    if market == 'miso':
+        indicator = None
+    if market == 'isone':
+        indicator = None
+    if market == 'nyiso':
+        indicator = None
+    if market == 'caiso':
+        indicator = None
+    query = f"""
+    select t1.opr_date, t1.opr_hour, count({indicator_act}) actu_count, count({indicator_fct}) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2) t1
+    left join new_model.sn_{market}_actual_solar_fcst t2
+    on t2.opr_date = t1.opr_date 
+    where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
+    group by t1.opr_date, t1.opr_hour 
+    order by t1.opr_date desc, t1.opr_hour desc
+    """
+
+    conn = engine.connect()
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    if output_type == 'raw':
+        return df
+    df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(
+        lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+
+    return {
+        "market": market.upper(),
+        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
+        "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
+        "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
+        "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
+        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
+    }
+
+def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='list'):
+    market = market.lower()
+    assert output_type in ('list', 'raw')
+    if lookback_days == None:
+        stdt = datetime.datetime(2017, 1, 1).date()
+    else:
+        stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
+
+    if market == 'ercot':
+        indicator = 'north'
+    if market == 'miso':
+        indicator = None
+    if market == 'isone':
+        indicator = None
+    if market == 'nyiso':
+        indicator = None
+    if market == 'caiso':
+        indicator = None
+    
+    query = f"""
+    select t1.opr_date, t1.opr_hour, count({indicator}_actual_load_mwh) actu_count, count({indicator}_fcst_load_mwh) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2) t1
+    left join new_model.sn_{market}_actual_load_fcst t2
+    on t2.opr_date = t1.opr_date 
+    where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
+    group by t1.opr_date, t1.opr_hour 
+    order by t1.opr_date desc, t1.opr_hour desc
+    """
+
+    conn = engine.connect()
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    if output_type == 'raw':
+        return df
+    df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(
+        lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+
+    return {
+        "market": market.upper(),
+        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
+        "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
+        "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
+        "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
+        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
+    }
+
+def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='list'):
+    market = market.lower()
+    assert output_type in ('list', 'raw')
+    if lookback_days == None:
+        stdt = datetime.datetime(2017, 1, 1).date()
+    else:
+        stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
+
+    if market=='ercot':
+        indicator = 'north'
+    if market=='miso':
+        indicator = 'north'
+    if market=='isone':
+        indicator = 'north'
+    if market=='nyiso':
+        indicator = 'north'
+    if market=='caiso':
+        indicator = 'north'
+    query = f"""
+    select t1.opr_date, t1.opr_hour, count({indicator}_actual) actu_count, count({indicator}_fcst) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2) t1
+    left join new_model.sn_{market}_actual_wind_fcst t2
+    on t2.opr_date = t1.opr_date 
+    where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
+    group by t1.opr_date, t1.opr_hour 
+    order by t1.opr_date desc, t1.opr_hour desc
+    """
+
+    conn = engine.connect()
+    df = pd.read_sql(query, conn)
+    conn.close()
+
+    if output_type == 'raw':
+        return df
+    df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    
+    return {
+        "market": market.upper(),
+        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[(df["actu_count"]==0)&(df["fcst_count"]==0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
+        "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
+        "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
+        "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
+        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
     }
 
 
