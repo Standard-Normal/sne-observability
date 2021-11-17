@@ -80,7 +80,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
     query = f"""    
     select t1.opr_date, t2.opr_hour, count(da_lmp) da_count, count(rt_lmp) rt_count
     from new_model.operating_date t1
-    --(select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2 where tt1.opr_date>='2017-01-01') t1 
+    --(select tt1.opr_date, tt1.{market}_holiday from new_model.operating_date tt1  where tt1.opr_date>='2017-01-01') t1 
     left join new_model.sn_dart_lmp t2
     on t2.opr_date = t1.opr_date 
     where t1.{market}_holiday = 0 and t2.market_id = {market_id} and t1.opr_date >= '{stdt}'
@@ -136,24 +136,27 @@ def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='li
         stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
 
     if market == 'ercot':
-        indicator_act = 'actual_solar_gen'
-        indicator_fct = 'stppf'
+        indicator_actu = 'actual_solar_gen'
+        indicator_fcst = 'stppf'
     if market == 'miso':
-        indicator = None
+        raise(Exception('MISO does not have solar'))
+    if market == 'nyiso':
+        raise(Exception('NYISO does not have solar'))
+    if market == 'caiso':
+        indicator_actu = 'np15_actual_solar_mwh'
+        indicator_fcst = 'np15_fcst_solar_mwh'
     if market == 'isone':
         indicator = None
-    if market == 'nyiso':
-        indicator = None
-    if market == 'caiso':
-        indicator = None
+    
+
     query = f"""
-    select t1.opr_date, t1.opr_hour, count({indicator_act}) actu_count, count({indicator_fct}) fcst_count
-    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2 where tt1.opr_date>='2017-01-01') t1
+    select t1.opr_date, t2.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday from new_model.operating_date tt1  where tt1.opr_date>='2017-01-01') t1
     left join new_model.sn_{market}_actual_solar_fcst t2
     on t2.opr_date = t1.opr_date 
     where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
-    group by t1.opr_date, t1.opr_hour 
-    order by t1.opr_date desc, t1.opr_hour desc
+    group by t1.opr_date, t2.opr_hour 
+    order by t1.opr_date desc, t2.opr_hour desc
     """
 
     conn = engine.connect()
@@ -194,21 +197,23 @@ def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='lis
     if market == 'miso':
         indicator_actu = 'actl_load_north'
         indicator_fcst = 'fcst_load_north'
-    if market == 'isone':
-        indicator = None
     if market == 'nyiso':
-        indicator = None
+        indicator_actu = 'nyiso_actual_load_mwh'
+        indicator_fcst = 'nyiso_fcst_load_mwh'
     if market == 'caiso':
+        indicator_actu = 'caisotac_actual_load_mwh'
+        indicator_fcst = 'caisotac_fcst_load_mwh'
+    if market == 'isone':
         indicator = None
     
     query = f"""
-    select t1.opr_date, t1.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
-    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2 where tt1.opr_date>='2017-01-01') t1
+    select t1.opr_date, t2.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday from new_model.operating_date tt1  where tt1.opr_date>='2017-01-01') t1
     left join new_model.sn_{market}_actual_load_fcst t2
     on t2.opr_date = t1.opr_date 
     where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
-    group by t1.opr_date, t1.opr_hour 
-    order by t1.opr_date desc, t1.opr_hour desc
+    group by t1.opr_date, t2.opr_hour 
+    order by t1.opr_date desc, t2.opr_hour desc
     """
 
     conn = engine.connect()
@@ -244,25 +249,27 @@ def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='lis
         stdt = datetime.datetime.now().date() - datetime.timedelta(days=lookback_days)
 
     if market=='ercot':
-        indicator_actu = 'north_actual'
-        indicator_fcst = 'north_fcst'
+        indicator_actu = 'ercot_actual'
+        indicator_fcst = 'ercot_fcst'
     if market=='miso':
         indicator_actu = 'actual_wind'
         indicator_fcst = 'fcst_wind'
+    if market=='nyiso':
+        raise(Exception('NYISO does not have wind data'))
     if market=='isone':
         indicator = 'north'
-    if market=='nyiso':
-        indicator = 'north'
     if market=='caiso':
-        indicator = 'north'
+        indicator_actu = 'np15_actual_wind_mwh'
+        indicator_fcst = 'np15_fcst_wind_mwh'
+
     query = f"""
-    select t1.opr_date, t1.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
-    from (select tt1.opr_date, tt1.{market}_holiday, tt2.opr_hour from new_model.operating_date tt1 cross join new_model.operating_hour tt2 where tt1.opr_date>='2017-01-01') t1
+    select t1.opr_date, t2.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
+    from (select tt1.opr_date, tt1.{market}_holiday from new_model.operating_date tt1  where tt1.opr_date>='2017-01-01') t1
     left join new_model.sn_{market}_actual_wind_fcst t2
     on t2.opr_date = t1.opr_date 
     where t1.{market}_holiday = 0 and t1.opr_date<= current_date + interval '1 day' and t1.opr_date > '{stdt}'
-    group by t1.opr_date, t1.opr_hour 
-    order by t1.opr_date desc, t1.opr_hour desc
+    group by t1.opr_date, t2.opr_hour 
+    order by t1.opr_date desc, t2.opr_hour desc
     """
 
     conn = engine.connect()
@@ -290,5 +297,5 @@ def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='lis
 
 
 if __name__ == '__main__':
-    # print(get_missing_dart('NYISO'))
+    print(get_missing_wind('MISO'))
     pass
