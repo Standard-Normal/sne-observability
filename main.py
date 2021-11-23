@@ -71,7 +71,7 @@ def check_iso_solar(iso, lookback=get_lookback_days(), hour_offset=1):
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
-    return r
+    return jsonify(r)
 
 @app.route('/check_iso_load/<iso>', methods=['GET'])
 @app.route('/check_iso_load/<iso>/<int:lookback>', methods=['GET'])
@@ -118,7 +118,7 @@ def check_iso_load(iso, lookback=get_lookback_days(), hour_offset=1):
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
-    return r
+    return jsonify(r)
 
 @app.route('/check_iso_wind/<iso>', methods=['GET'])
 @app.route('/check_iso_wind/<iso>/<int:lookback>', methods=['GET'])
@@ -167,7 +167,7 @@ def check_iso_wind(iso, lookback=get_lookback_days(), hour_offset=1):
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
-    return r
+    return jsonify(r)
 
 
 @app.route('/check_iso_dart/<iso>', methods=['GET'])
@@ -227,7 +227,7 @@ def check_iso_dart(iso, lookback=get_lookback_days(), hour_offset=1):
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
-    return r
+    return jsonify(r)
 
 
 if __name__ == "__main__":

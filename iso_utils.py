@@ -94,7 +94,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         return df
     df = df[~df['opr_date'].isin(EXCEPTION_DATES[market.upper()])]
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
-    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
     # df['exception'] = df[~df['opr_date'].astype(str).apply(lambda x: x.replace('-', '')).isin(EXCEPTION_DATES.get(market, []))]
     
     cr1 = df['opr_datetime'] <= pd.to_datetime(datetime.datetime.today().date()) + datetime.timedelta(hours=datetime.datetime.now(pytz.timezone(TIMEZONES[market.upper()])).hour - hour_offset)
@@ -141,7 +141,8 @@ def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='li
     if market == 'miso':
         raise(Exception('MISO does not have solar'))
     if market == 'nyiso':
-        raise(Exception('NYISO does not have solar'))
+        indicator_actu = 'nyiso_actual_solar_mwh'
+        indicator_fcst = 'nyiso_fcst_solar_mwh'
     if market == 'caiso':
         indicator_actu = 'np15_actual_solar_mwh'
         indicator_fcst = 'np15_fcst_solar_mwh'
@@ -166,7 +167,7 @@ def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='li
     if output_type == 'raw':
         return df
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
-    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(
         lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
 
     return {
@@ -223,7 +224,7 @@ def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='lis
     if output_type == 'raw':
         return df
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
-    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(
         lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
 
     return {
@@ -279,7 +280,7 @@ def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='lis
     if output_type == 'raw':
         return df
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
-    df['opr_datetime'] = df[['opr_date', 'opr_hour']].apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
     
     return {
         "market": market.upper(),
