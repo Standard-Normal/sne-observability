@@ -205,7 +205,8 @@ def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='lis
         indicator_actu = 'caisotac_actual_load_mwh'
         indicator_fcst = 'caisotac_fcst_load_mwh'
     if market == 'isone':
-        indicator = None
+        indicator_actu = 'maine_actual_mwh'
+        indicator_fcst = 'maine_fcst_mwh'
     
     query = f"""
     select t1.opr_date, t2.opr_hour, count({indicator_actu}) actu_count, count({indicator_fcst}) fcst_count
