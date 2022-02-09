@@ -13,6 +13,7 @@ import requests
 import io
 import os
 import csv
+import json
 import pytz
 import sqlalchemy
 from sqlalchemy.sql import text
@@ -52,6 +53,12 @@ DB = "FRONTOFFICE"
 
 engine = sqlalchemy.create_engine(f'postgresql+psycopg2://{USER}:{PWD}@{HOST}:5432/{DB}')
 
+def load_exception_dates(market=None):
+    exc_dates = json.load(open('exception_dates.json', 'r'))
+    if market:
+        return exc_dates.get(market.upper(), {})
+    return exc_dates
+
 def get_market_id(market):
     conn = engine.connect()
     market_id = pd.read_sql(f"select market_id from new_model.market where market_name='{market.upper()}'", conn)['market_id'].values[0]
@@ -60,6 +67,7 @@ def get_market_id(market):
 
 def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='list'):
     assert output_type in ('list', 'raw')
+    exception_dates = load_exception_dates(market=market.upper())
     if lookback_days==None:
         stdt = datetime.datetime(2017, 1, 1).date()
     else:
@@ -92,7 +100,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
 
     if output_type == 'raw':
         return df
-    df = df[~df['opr_date'].isin(EXCEPTION_DATES[market.upper()])]
+    # df = df[~df['opr_date'].isin(EXCEPTION_DATES[market.upper()])]
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
     df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
     # df['exception'] = df[~df['opr_date'].astype(str).apply(lambda x: x.replace('-', '')).isin(EXCEPTION_DATES.get(market, []))]
@@ -100,17 +108,19 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
     cr1 = df['opr_datetime'] <= pd.to_datetime(datetime.datetime.today().date()) + datetime.timedelta(hours=datetime.datetime.now(pytz.timezone(TIMEZONES[market.upper()])).hour - hour_offset)
     cr2 = df['opr_date'] <= datetime.datetime.today().date() - ALLOWED_RT_LAST_DATE_DELTA[market.upper()]
     cr3 = df['opr_date'] <= datetime.datetime.today().date() + datetime.timedelta(days=1)
+    cr4rt = ~df['opr_date'].astype(str).isin(exception_dates.get("DART_RT", []))
+    cr4da = ~df['opr_date'].astype(str).isin(exception_dates.get("DART_DA", []))
 
     df['opr_date'] = df['opr_date'].astype(str)
-    missing_rt = df[(df['rt_count']==0) & cr1 & cr2][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
-    missing_rt_days = df[(df['rt_count']==0) & cr1 & cr2][['opr_date']].drop_duplicates().shape[0]
+    missing_rt = df[(df['rt_count']==0) & cr1 & cr2 & cr4rt][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
+    missing_rt_days = df[(df['rt_count']==0) & cr1 & cr2 & cr4rt][['opr_date']].drop_duplicates().shape[0]
     if datetime.datetime.now(pytz.timezone(TIMEZONES[market.upper()])).hour<=12:
         missing_da = df[(df['da_count']==0) & cr1][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
         missing_da_days = df[(df['da_count']==0) & cr1][['opr_date']].drop_duplicates().shape[0]
         skipped_dates = df[(df['da_count']==0)&(df['rt_count']==0) & cr1][['opr_date']].drop_duplicates().values.tolist()
     else:
-        missing_da = df[(df['da_count']==0) & cr3][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
-        missing_da_days = df[(df['da_count']==0) & cr3][['opr_date']].drop_duplicates().shape[0]
+        missing_da = df[(df['da_count']==0) & cr3 & cr4da][['opr_date', 'opr_hour']].drop_duplicates().values.tolist()
+        missing_da_days = df[(df['da_count']==0) & cr3 & cr4da][['opr_date']].drop_duplicates().shape[0]
         skipped_dates = df[(df['da_count']==0)&(df['rt_count']==0) & cr3][['opr_date']].drop_duplicates().values.tolist()
     return {
         'market': market.lower(),
@@ -128,6 +138,7 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
 
 
 def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='list'):
+    exception_dates = load_exception_dates(market=market.upper())
     market = market.lower()
     assert output_type in ('list', 'raw')
     if lookback_days == None:
@@ -169,22 +180,25 @@ def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='li
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
     df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(
         lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    crda = (~df['opr_date'].astype(str).isin(exception_dates.get("SOLAR_DA", [])))
+    crrt = (~df['opr_date'].astype(str).isin(exception_dates.get("SOLAR_RT", [])))
 
     return {
         "market": market.upper(),
-        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
-        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
         "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
         "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
-        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
-        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
+        "missing_actual_days": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
     }
 
 def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='list'):
+    exception_dates = load_exception_dates(market=market.upper())
     market = market.lower()
     assert output_type in ('list', 'raw')
     if lookback_days == None:
@@ -227,22 +241,25 @@ def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='lis
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
     df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(
         lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
+    crda = (~df['opr_date'].astype(str).isin(exception_dates.get("LOAD_DA", [])))
+    crrt = (~df['opr_date'].astype(str).isin(exception_dates.get("LOAD_RT", [])))
 
     return {
         "market": market.upper(),
-        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
-        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
         "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
         "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
-        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
-        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
+        "missing_actual_days": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
     }
 
 def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='list'):
+    exception_dates = load_exception_dates(market=market.upper())
     market = market.lower()
     assert output_type in ('list', 'raw')
     if lookback_days == None:
@@ -282,22 +299,24 @@ def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='lis
         return df
     df['opr_date'] = pd.to_datetime(df['opr_date']).dt.date
     df['opr_datetime'] = df[['opr_date', 'opr_hour']].drop_duplicates().dropna().apply(lambda x: pd.to_datetime(x[0]) + datetime.timedelta(hours=x[1]), axis=1)
-    
+    crda = (~df['opr_date'].astype(str).isin(exception_dates.get("WIND_DA", [])))
+    crrt = (~df['opr_date'].astype(str).isin(exception_dates.get("WIND_RT", [])))
+
     return {
         "market": market.upper(),
-        "missing_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[(df["actu_count"]==0)&(df["fcst_count"]==0)]["opr_date"].drop_duplicates().values.tolist(),
-        "skipped_dates_count": df[(df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
+        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
+        "skipped_dates": df[crda & crrt & (df["actu_count"]==0)&(df["fcst_count"]==0)]["opr_date"].drop_duplicates().values.tolist(),
+        "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
         "last_blank_datetime_actual": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_datetime'].max(),
         "last_blank_datetime_forecast": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_datetime'].max(),
-        "missing_actual_days": df[(df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
-        "missing_forecast_days": df[(df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
+        "missing_actual_days": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())]['opr_date'].unique().shape[0],
+        "missing_forecast_days": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))]['opr_date'].unique().shape[0]
     }
 
 
 if __name__ == '__main__':
-    print(get_missing_wind('MISO'))
+    print(get_missing_solar('ERCOT'))
     pass
