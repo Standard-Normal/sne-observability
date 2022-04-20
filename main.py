@@ -37,7 +37,7 @@ def check_iso_solar(iso, lookback=get_lookback_days(), hour_offset=1):
         r['status'] = 'green'
 
     if r['status'] != 'green':
-        subject = f"SOLARDATA-COMPLETENESS-REDFLAG: {r['market']}"
+        subject = f"{r['market']}::SOLARDATA-COMPLETENESS"
         summary = pd.DataFrame(pd.Series({
             'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
@@ -56,18 +56,18 @@ def check_iso_solar(iso, lookback=get_lookback_days(), hour_offset=1):
         """
         if len(r['skipped_dates']) > 0:
             body += f"""\n
-            <h2>SKIPPED DATES</h2>
-                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']), 'blue_light', font_size=9)}
+            <h2>SKIPPED DATES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_actual']) > 0:
             body += f"""
-            <h2>ACTUAL MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>ACTUAL MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_forecast']) > 0:
             body += f"""
-            <h2>FORECAST MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>FORECAST MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
@@ -84,7 +84,7 @@ def check_iso_load(iso, lookback=get_lookback_days(), hour_offset=1):
         r['status'] = 'green'
     
     if r['status'] != 'green':
-        subject = f"LOADDATA-COMPLETENESS-REDFLAG: {r['market']}"
+        subject = f"{r['market']}::LOADDATA-COMPLETENESS"
         summary = pd.DataFrame(pd.Series({
             'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
@@ -103,18 +103,18 @@ def check_iso_load(iso, lookback=get_lookback_days(), hour_offset=1):
         """
         if len(r['skipped_dates']) > 0:
             body += f"""\n
-            <h2>SKIPPED DATES</h2>
-                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']), 'blue_light', font_size=9)}
+            <h2>SKIPPED DATES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_actual']) > 0:
             body += f"""
-            <h2>ACTUAL MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>ACTUAL MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_forecast']) > 0:
             body += f"""
-            <h2>FORECAST MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>FORECAST MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
@@ -133,7 +133,7 @@ def check_iso_wind(iso, lookback=get_lookback_days(), hour_offset=1):
         r['status'] = 'green'
     
     if r['status'] != 'green':
-        subject = f"WINDDATA-COMPLETENESS-REDFLAG: {r['market']}"
+        subject = f"{r['market']}::WINDDATA-COMPLETENESS"
         summary = pd.DataFrame(pd.Series({
             'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
@@ -152,18 +152,18 @@ def check_iso_wind(iso, lookback=get_lookback_days(), hour_offset=1):
         """
         if len(r['skipped_dates']) > 0:
             body += f"""\n
-            <h2>SKIPPED DATES</h2>
-                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']), 'blue_light', font_size=9)}
+            <h2>SKIPPED DATES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_actual']) > 0:
             body += f"""
-            <h2>ACTUAL MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>ACTUAL MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_actual'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_forecast']) > 0:
             body += f"""
-            <h2>FORECAST MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>FORECAST MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_forecast'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)
@@ -193,7 +193,7 @@ def check_iso_dart(iso, lookback=get_lookback_days(), hour_offset=1):
     r['type'] = 'dart'
 
     if r['status']!='green':
-        subject = f"LMPDATA-COMPLETENESS-REDFLAG: {r['market']}"
+        subject = f"{r['market']}::LMPDATA-COMPLETENESS"
         summary = pd.DataFrame(pd.Series({
             'REPORT TIME': str(datetime.datetime.now().replace(microsecond=0)),
             'MARKET': r['market'],
@@ -212,18 +212,18 @@ def check_iso_dart(iso, lookback=get_lookback_days(), hour_offset=1):
         """
         if len(r['skipped_dates'])>0:
             body += f"""\n
-            <h2>SKIPPED DATES</h2>
-                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']), 'blue_light', font_size=9)}
+            <h2>SKIPPED DATES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['skipped_dates'], columns=['OPR_DATE']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_da'])>0:
             body += f"""
-            <h2>DA MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_da'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>DA MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_da'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         if len(r['missing_rt'])>0:
             body += f"""
-            <h2>RT MISSING DATETIMES</h2>
-                {build_table(pd.DataFrame(r['missing_rt'], columns=['OPR_DATE', 'OPR_HOUR']), 'blue_light', font_size=9)}
+            <h2>RT MISSING DATETIMES (LAST 20)</h2>
+                {build_table(pd.DataFrame(r['missing_rt'], columns=['OPR_DATE', 'OPR_HOUR']).head(20), 'blue_light', font_size=9)}
             """
         for email in eu.EMAILS:
             eu.send_flag_report(email, body, subject)

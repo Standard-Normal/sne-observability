@@ -124,16 +124,16 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         skipped_dates = df[(df['da_count']==0)&(df['rt_count']==0) & cr3][['opr_date']].drop_duplicates().values.tolist()
     return {
         'market': market.lower(),
-        'missing_rt': missing_rt,
-        'missing_da': missing_da,
-        'skipped_dates': skipped_dates,
+        'missing_rt': sorted(missing_rt, reverse=True),
+        'missing_da': sorted(missing_da, reverse=True),
+        'skipped_dates': sorted(skipped_dates, reverse=True),
         'skipped_dates_count': len(skipped_dates),
         'last_datetime_da': str(pd.to_datetime(df[(df['da_count'] != 0)]['opr_date'].dropna()).max()),
         'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].dropna().max()),
         'last_blank_datetime_da': str(pd.to_datetime(df[df['da_count'] == 0]['opr_date'].dropna()).max()),
         'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr1 & cr2]['opr_datetime'].dropna().max()),
-        'missing_rt_days': missing_rt_days,
-        'missing_da_days': missing_da_days
+        'missing_rt_days': sorted(missing_rt_days, reverse=True),
+        'missing_da_days': sorted(missing_da_days, reverse=True)
     }
 
 
@@ -185,9 +185,9 @@ def get_missing_solar(market, lookback_days=None, hour_offset=1, output_type='li
 
     return {
         "market": market.upper(),
-        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "missing_actual": sorted(df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "missing_forecast": sorted(df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "skipped_dates": sorted(df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(), reverse=True),
         "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
@@ -246,9 +246,9 @@ def get_missing_load(market, lookback_days=None, hour_offset=1, output_type='lis
 
     return {
         "market": market.upper(),
-        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(),
+        "missing_actual": sorted(df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "missing_forecast": sorted(df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "skipped_dates": sorted(df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().values.tolist(), reverse=True),
         "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
@@ -304,9 +304,9 @@ def get_missing_wind(market, lookback_days=None, hour_offset=1, output_type='lis
 
     return {
         "market": market.upper(),
-        "missing_actual": df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "missing_forecast": df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(),
-        "skipped_dates": df[crda & crrt & (df["actu_count"]==0)&(df["fcst_count"]==0)]["opr_date"].drop_duplicates().values.tolist(),
+        "missing_actual": sorted(df[crda & (df["actu_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date())][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "missing_forecast": sorted(df[crrt & (df["fcst_count"] == 0) & (df["opr_date"] <= datetime.datetime.now().date()+datetime.timedelta(days=1))][["opr_date", "opr_hour"]].drop_duplicates().values.tolist(), reverse=True),
+        "skipped_dates": sorted(df[crda & crrt & (df["actu_count"]==0)&(df["fcst_count"]==0)]["opr_date"].drop_duplicates().values.tolist(), reverse=True),
         "skipped_dates_count": df[crda & crrt & (df["actu_count"] == 0) & (df["fcst_count"] == 0)]["opr_date"].drop_duplicates().shape[0],
         "last_datetime_actual": df[(df["actu_count"] != 0)]['opr_datetime'].max(),
         "last_datetime_forecast": df[(df["fcst_count"] != 0)]['opr_datetime'].max(),
