@@ -132,8 +132,8 @@ def get_missing_dart(market, lookback_days=None, hour_offset=1, output_type='lis
         'last_datetime_rt': str(df[df['rt_count']!=0]['opr_datetime'].dropna().max()),
         'last_blank_datetime_da': str(pd.to_datetime(df[df['da_count'] == 0]['opr_date'].dropna()).max()),
         'last_blank_datetime_rt': str(df[(df['rt_count'] == 0) & cr1 & cr2]['opr_datetime'].dropna().max()),
-        'missing_rt_days': sorted(missing_rt_days, reverse=True),
-        'missing_da_days': sorted(missing_da_days, reverse=True)
+        'missing_rt_days': missing_rt_days,
+        'missing_da_days': missing_da_days
     }
 
 
